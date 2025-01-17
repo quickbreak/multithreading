@@ -5,7 +5,7 @@
 #include <iostream>
 
 
-namespace first_variant {
+namespace id_printer {
     std::mutex condition_mx;
     std::condition_variable cv;
     std::vector<int32_t> buffer(10);
@@ -66,8 +66,8 @@ namespace second_variant {
 
 
 int main() {
-    std::thread consumer(first_variant::Consumer);
-    std::thread producer(first_variant::Produce);
+    std::thread consumer(id_printer::Consumer);
+    std::thread producer(id_printer::Produce);
 
     consumer.join();
     producer.join();
