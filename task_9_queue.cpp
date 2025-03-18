@@ -3,35 +3,37 @@
 #include <mutex>
 #include <set>
 #include <iostream>
+#include <condition_variable>
 
 struct ThreadSafeQueue {
 private:
     std::queue<int> q_;
     std::mutex mx_;
+    std::condition_variable cv_;
 public:
     void Push(int value) {
-        std::scoped_lock(mx_);
-        q_.push(value);
+        {
+            std::scoped_lock(mx_);
+            q_.push(value);
+        }
+        cv_.notify_one();
     }
     
     int Front() {
-        std::scoped_lock(mx_);
-        if (!q_.empty()) {
-            return q_.front();
-        } else {
-            return -1;
-        }
+        std::unique_lock lock(mx_);
+        cv_.wait(lock, [this] {
+            return !q_.empty();
+        });
+        return q_.front();
     }
 
     int Pop() {
-        std::scoped_lock(mx_);
-        int temp;
-        if (!q_.empty()) {
-            temp = q_.front();
-            q_.pop();
-        } else {
-            temp = -1;
-        }
+        std::unique_lock lock(mx_);
+        cv_.wait(lock, [this] {
+            return !q_.empty();
+        });
+        int temp = q_.front();
+        q_.pop();
         return temp;
     }
 };
@@ -58,8 +60,8 @@ namespace ThreadSafeQueueWorking {
 
 
 int main() {
-    std::thread th2(ThreadSafeQueueWorking::Pusher);
     std::thread th3(ThreadSafeQueueWorking::Reader);
+    std::thread th2(ThreadSafeQueueWorking::Pusher);
     
     th2.join();
     th3.join();
