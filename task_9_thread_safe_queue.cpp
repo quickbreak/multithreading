@@ -5,13 +5,15 @@
 #include <iostream>
 #include <condition_variable>
 
+
+template <typename T>
 struct ThreadSafeQueue {
 private:
-    std::queue<int> q_;
+    std::queue<T> q_;
     std::mutex mx_;
     std::condition_variable cv_;
 public:
-    void Push(int value) {
+    void Push(T value) {
         {
             std::scoped_lock(mx_);
             q_.push(value);
@@ -19,7 +21,7 @@ public:
         cv_.notify_one();
     }
     
-    int Front() {
+    T Front() {
         std::unique_lock lock(mx_);
         cv_.wait(lock, [this] {
             return !q_.empty();
@@ -27,12 +29,12 @@ public:
         return q_.front();
     }
 
-    int Pop() {
+    T Pop() {
         std::unique_lock lock(mx_);
         cv_.wait(lock, [this] {
             return !q_.empty();
         });
-        int temp = q_.front();
+        T temp = q_.front();
         q_.pop();
         return temp;
     }
@@ -40,7 +42,7 @@ public:
 
 
 namespace ThreadSafeQueueWorking {
-    ThreadSafeQueue q;
+    ThreadSafeQueue<int> q;
     std::set<int> st;
     void Pusher() {
         for (int i = 0; i < 1000; ++i) {
@@ -51,17 +53,14 @@ namespace ThreadSafeQueueWorking {
     void Reader() {
         for (int i = 0; i < 1000; ++i) {
             st.insert(q.Pop());
-            if (*st.begin() == -1) {
-                st.erase(st.begin());
-            }
         }
     }
 }
 
 
 int main() {
-    std::thread th3(ThreadSafeQueueWorking::Reader);
-    std::thread th2(ThreadSafeQueueWorking::Pusher);
+    std::thread th3(ThreadSafeQueueWorking::Pusher);
+    std::thread th2(ThreadSafeQueueWorking::Reader);
     
     th2.join();
     th3.join();
